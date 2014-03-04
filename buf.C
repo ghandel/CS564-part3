@@ -75,23 +75,31 @@ const Status BufMgr::allocBuf(int & frame)
 	
 const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 {
-	cout << "2";
 	Status status = OK;
 	int frameNo = 0;
 	status = hashTable->lookup(file, PageNo, frameNo);
 	if (status == OK)	//	Page is in the buffer pool
 	{
-		BufDesc* pageDesc = &(bufTable[frameNo]);
-		pageDesc->pinCnt++;
-		pageDesc->refbit = true;
-		page = &(bufPool[frameNo]);
+		BufDesc * tmpbuf = &(bufTable[frameNo]);
+		tmpbuf->pinCnt++;
 	}
 	else		//	Page is not in the buffer pool
 	{
-		status = allocBuf(frameNo);
-		file->readPage(PageNo, page);
-		
+		status	= allocBuf(frameNo);
+		if (status != OK)
+		{
+		  return status;
+		}
+		page	= &(bufPool[frameNo]);
+		status	= file->readPage(PageNo, page);
+		if (status != OK)
+		{
+		  return status;
+		}
+		bufTable[frameNo].Set(file, PageNo);
+		status = hashTable->insert(file, PageNo, frameNo);
 	}
+	page = &(bufPool[frameNo]);
 	return status;
 }
 
@@ -99,7 +107,20 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 const Status BufMgr::unPinPage(File* file, const int PageNo, 
 				   const bool dirty) 
 {
-	cout << "3";
+	BufDesc * buf = &(bufTable[frameNo]);
+	Status status = OK;
+	int frameNo = 0;
+	if (hashTable->lookup(file, PageNo, frameNo) != OK)
+	{
+		return HASHNOTFOUND;
+	}
+	if (buf->pinCnt <= 0)
+	{
+		return PAGENOTPINNED;
+	}
+	
+	buf->pinCnt--;
+	buf->dirty = dirty;
 	return OK;
 }
 
