@@ -107,13 +107,12 @@ const Status BufMgr::readPage(File* file, const int PageNo, Page*& page)
 const Status BufMgr::unPinPage(File* file, const int PageNo, 
 				   const bool dirty) 
 {
-	BufDesc * buf = &(bufTable[frameNo]);
-	Status status = OK;
 	int frameNo = 0;
 	if (hashTable->lookup(file, PageNo, frameNo) != OK)
 	{
 		return HASHNOTFOUND;
 	}
+	BufDesc * buf = &(bufTable[frameNo]);
 	if (buf->pinCnt <= 0)
 	{
 		return PAGENOTPINNED;
@@ -126,13 +125,26 @@ const Status BufMgr::unPinPage(File* file, const int PageNo,
 
 const Status BufMgr::allocPage(File* file, int& pageNo, Page*& page) 
 {
-	cout << "h";
-
-	return OK;
-
-
-
-
+	Status status = OK;
+	int frameNo = 0;
+	status = file->allocatePage(pageNo);
+	if (status != OK)
+	{
+	  return status;
+	}
+	status = allocBuf(frameNo);
+	if (status != OK)
+	{
+		return status;
+	}
+	status = hashTable->insert(file, pageNo, frameNo);
+	if (status != OK)
+	{
+		return status;
+	}
+	bufTable[frameNo].Set(file, pageNo);
+	page = &(bufPool[frameNo]);
+	return status;
 }
 
 const Status BufMgr::disposePage(File* file, const int pageNo) 
